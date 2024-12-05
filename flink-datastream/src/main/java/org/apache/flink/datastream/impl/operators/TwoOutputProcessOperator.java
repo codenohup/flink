@@ -21,6 +21,7 @@ package org.apache.flink.datastream.impl.operators;
 import org.apache.flink.api.common.TaskInfo;
 import org.apache.flink.api.common.watermark.WatermarkHandlingResult;
 import org.apache.flink.api.common.watermark.WatermarkHandlingStrategy;
+import org.apache.flink.datastream.api.context.EventTimeManager;
 import org.apache.flink.datastream.api.context.ProcessingTimeManager;
 import org.apache.flink.datastream.api.context.TwoOutputNonPartitionedContext;
 import org.apache.flink.datastream.api.function.TwoOutputStreamProcessFunction;
@@ -29,6 +30,7 @@ import org.apache.flink.datastream.impl.common.TimestampCollector;
 import org.apache.flink.datastream.impl.context.DefaultRuntimeContext;
 import org.apache.flink.datastream.impl.context.DefaultTwoOutputNonPartitionedContext;
 import org.apache.flink.datastream.impl.context.DefaultTwoOutputPartitionedContext;
+import org.apache.flink.datastream.impl.context.UnsupportedEventTimeManager;
 import org.apache.flink.datastream.impl.context.UnsupportedProcessingTimeManager;
 import org.apache.flink.runtime.asyncprocessing.operators.AbstractAsyncStateUdfStreamOperator;
 import org.apache.flink.runtime.event.WatermarkEvent;
@@ -108,6 +110,7 @@ public class TwoOutputProcessOperator<IN, OUT_MAIN, OUT_SIDE>
                         this::currentKey,
                         getProcessorWithKey(),
                         getProcessingTimeManager(),
+                        getEventTimeManager(),
                         operatorContext,
                         operatorStateStore);
         this.nonPartitionedContext = getNonPartitionedContext();
@@ -186,6 +189,10 @@ public class TwoOutputProcessOperator<IN, OUT_MAIN, OUT_SIDE>
 
     protected ProcessingTimeManager getProcessingTimeManager() {
         return UnsupportedProcessingTimeManager.INSTANCE;
+    }
+
+    protected EventTimeManager getEventTimeManager() {
+        return UnsupportedEventTimeManager.INSTANCE;
     }
 
     /**

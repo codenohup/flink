@@ -31,4 +31,6 @@ public interface BasePartitionedContext extends RuntimeContext {
 
     /** Get the {@link ProcessingTimeManager} of this process function. */
     ProcessingTimeManager getProcessingTimeManager();
+
+    EventTimeManager getEventTimeManager();
 }

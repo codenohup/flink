@@ -18,6 +18,7 @@
 
 package org.apache.flink.datastream.impl.context;
 
+import org.apache.flink.datastream.api.context.EventTimeManager;
 import org.apache.flink.datastream.api.context.NonPartitionedContext;
 import org.apache.flink.datastream.api.context.PartitionedContext;
 import org.apache.flink.datastream.api.context.ProcessingTimeManager;
@@ -46,6 +47,7 @@ public class DefaultPartitionedContext extends AbstractPartitionedContext
             Supplier<Object> currentKeySupplier,
             BiConsumer<Runnable, Object> processorWithKey,
             ProcessingTimeManager processingTimeManager,
+            EventTimeManager eventTimeManager,
             StreamingRuntimeContext operatorContext,
             OperatorStateStore operatorStateStore) {
         super(
@@ -53,6 +55,7 @@ public class DefaultPartitionedContext extends AbstractPartitionedContext
                 currentKeySupplier,
                 processorWithKey,
                 processingTimeManager,
+                eventTimeManager,
                 operatorContext,
                 operatorStateStore);
     }

@@ -19,6 +19,7 @@
 package org.apache.flink.datastream.impl.context;
 
 import org.apache.flink.datastream.api.context.BasePartitionedContext;
+import org.apache.flink.datastream.api.context.EventTimeManager;
 import org.apache.flink.datastream.api.context.JobInfo;
 import org.apache.flink.datastream.api.context.ProcessingTimeManager;
 import org.apache.flink.datastream.api.context.RuntimeContext;
@@ -38,11 +39,14 @@ public abstract class AbstractPartitionedContext implements BasePartitionedConte
 
     protected final ProcessingTimeManager processingTimeManager;
 
+    protected final EventTimeManager eventTimeManager;
+
     public AbstractPartitionedContext(
             RuntimeContext context,
             Supplier<Object> currentKeySupplier,
             BiConsumer<Runnable, Object> processorWithKey,
             ProcessingTimeManager processingTimeManager,
+            EventTimeManager eventTimeManager,
             StreamingRuntimeContext operatorContext,
             OperatorStateStore operatorStateStore) {
         this.context = context;
@@ -50,6 +54,7 @@ public abstract class AbstractPartitionedContext implements BasePartitionedConte
                 new DefaultStateManager(
                         currentKeySupplier, processorWithKey, operatorContext, operatorStateStore);
         this.processingTimeManager = processingTimeManager;
+        this.eventTimeManager = eventTimeManager;
     }
 
     @Override
@@ -75,5 +80,10 @@ public abstract class AbstractPartitionedContext implements BasePartitionedConte
     @Override
     public MetricGroup getMetricGroup() {
         return context.getMetricGroup();
+    }
+
+    @Override
+    public EventTimeManager getEventTimeManager() {
+        return eventTimeManager;
     }
 }

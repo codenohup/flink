@@ -70,6 +70,7 @@ class DefaultNonPartitionedContextTest {
                             cf.complete(null);
                         },
                         UnsupportedProcessingTimeManager.INSTANCE,
+                        UnsupportedEventTimeManager.INSTANCE,
                         ContextTestUtils.createStreamingRuntimeContext(),
                         new MockOperatorStateStore());
         DefaultNonPartitionedContext<Integer> nonPartitionedContext =
@@ -131,6 +132,7 @@ class DefaultNonPartitionedContextTest {
                             currentKey.set(oldKey);
                         },
                         UnsupportedProcessingTimeManager.INSTANCE,
+                        UnsupportedEventTimeManager.INSTANCE,
                         ContextTestUtils.createStreamingRuntimeContext(),
                         new MockOperatorStateStore());
         DefaultNonPartitionedContext<Integer> nonPartitionedContext =
