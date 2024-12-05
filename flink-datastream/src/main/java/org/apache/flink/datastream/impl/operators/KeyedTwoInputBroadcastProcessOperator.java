@@ -96,7 +96,7 @@ public class KeyedTwoInputBroadcastProcessOperator<KEY, IN1, IN2, OUT>
 
     @Override
     public void onEventTime(InternalTimer<KEY, VoidNamespace> timer) throws Exception {
-        // do nothing at the moment.
+        userFunction.onEventTimer(timer.getTimestamp(), getOutputCollector(), partitionedContext);
     }
 
     @Override

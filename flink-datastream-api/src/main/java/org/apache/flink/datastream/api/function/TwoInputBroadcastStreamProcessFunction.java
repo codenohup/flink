@@ -90,6 +90,15 @@ public interface TwoInputBroadcastStreamProcessFunction<IN1, IN2, OUT> extends P
     default void onProcessingTimer(long timestamp, Collector<OUT> output, PartitionedContext ctx) {}
 
     /**
+     * Callback for event timer.
+     *
+     * @param timestamp when this callback is triggered.
+     * @param output to emit record.
+     * @param ctx runtime context in which this function is executed.
+     */
+    default void onEventTimer(long timestamp, Collector<OUT> output, PartitionedContext ctx) {}
+
+    /**
      * Callback function when receive the watermark from broadcast input.
      *
      * @param watermark to process.

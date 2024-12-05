@@ -78,6 +78,20 @@ public interface TwoOutputStreamProcessFunction<IN, OUT1, OUT2> extends ProcessF
             TwoOutputPartitionedContext ctx) {}
 
     /**
+     * Callback for event timer.
+     *
+     * @param timestamp when this callback is triggered.
+     * @param output1 to emit record.
+     * @param output2 to emit record.
+     * @param ctx runtime context in which this function is executed.
+     */
+    default void onEventTimer(
+            long timestamp,
+            Collector<OUT1> output1,
+            Collector<OUT2> output2,
+            TwoOutputPartitionedContext ctx) {}
+
+    /**
      * Callback function when receive the watermark from the input.
      *
      * @param watermark to process.

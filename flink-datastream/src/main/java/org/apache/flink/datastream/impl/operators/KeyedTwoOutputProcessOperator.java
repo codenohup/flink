@@ -119,7 +119,8 @@ public class KeyedTwoOutputProcessOperator<KEY, IN, OUT_MAIN, OUT_SIDE>
 
     @Override
     public void onEventTime(InternalTimer<KEY, VoidNamespace> timer) throws Exception {
-        // do nothing at the moment.
+        userFunction.onEventTimer(
+                timer.getTimestamp(), getMainCollector(), getSideCollector(), partitionedContext);
     }
 
     @Override

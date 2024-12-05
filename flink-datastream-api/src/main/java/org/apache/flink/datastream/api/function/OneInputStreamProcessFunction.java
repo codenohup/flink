@@ -66,6 +66,15 @@ public interface OneInputStreamProcessFunction<IN, OUT> extends ProcessFunction 
      */
     default void onProcessingTimer(long timestamp, Collector<OUT> output, PartitionedContext ctx) {}
 
+    /**
+     * Callback for event timer.
+     *
+     * @param timestamp when this callback is triggered.
+     * @param output to emit record.
+     * @param ctx runtime context in which this function is executed.
+     */
+    default void onEventTimer(long timestamp, Collector<OUT> output, PartitionedContext ctx) {}
+
     /** Callback function when receive watermark. */
     default WatermarkHandlingResult onWatermark(
             Watermark watermark, Collector<OUT> output, NonPartitionedContext<OUT> ctx) {

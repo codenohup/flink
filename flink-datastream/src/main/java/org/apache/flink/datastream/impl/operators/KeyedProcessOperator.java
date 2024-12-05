@@ -86,7 +86,7 @@ public class KeyedProcessOperator<KEY, IN, OUT> extends ProcessOperator<IN, OUT>
 
     @Override
     public void onEventTime(InternalTimer<KEY, VoidNamespace> timer) throws Exception {
-        // do nothing at the moment.
+        userFunction.onEventTimer(timer.getTimestamp(), getOutputCollector(), partitionedContext);
     }
 
     @Override
