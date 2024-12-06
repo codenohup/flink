@@ -94,6 +94,9 @@ public interface NonKeyedPartitionStream<T> extends DataStream {
      */
     NonKeyedPartitionStream<T> shuffle();
 
+    ProcessConfigurableAndNonKeyedPartitionStream<T> extractEventTime(
+            EventTimeExtractor<T> assigner);
+
     /**
      * Transform this stream to a new {@link BroadcastStream}.
      *

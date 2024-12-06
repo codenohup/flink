@@ -25,6 +25,7 @@ import org.apache.flink.datastream.api.function.TwoInputBroadcastStreamProcessFu
 import org.apache.flink.datastream.api.function.TwoInputNonBroadcastStreamProcessFunction;
 import org.apache.flink.datastream.api.function.TwoOutputStreamProcessFunction;
 import org.apache.flink.datastream.api.stream.BroadcastStream;
+import org.apache.flink.datastream.api.stream.EventTimeExtractor;
 import org.apache.flink.datastream.api.stream.GlobalStream;
 import org.apache.flink.datastream.api.stream.KeyedPartitionStream;
 import org.apache.flink.datastream.api.stream.NonKeyedPartitionStream;
@@ -85,6 +86,12 @@ public class ProcessConfigurableAndNonKeyedPartitionStreamImpl<T>
     @Override
     public NonKeyedPartitionStream<T> shuffle() {
         return stream.shuffle();
+    }
+
+    @Override
+    public ProcessConfigurableAndNonKeyedPartitionStream<T> extractEventTime(
+            EventTimeExtractor<T> assigner) {
+        return stream.extractEventTime(assigner);
     }
 
     @Override

@@ -29,6 +29,7 @@ import org.apache.flink.datastream.api.function.TwoInputBroadcastStreamProcessFu
 import org.apache.flink.datastream.api.function.TwoInputNonBroadcastStreamProcessFunction;
 import org.apache.flink.datastream.api.function.TwoOutputStreamProcessFunction;
 import org.apache.flink.datastream.api.stream.BroadcastStream;
+import org.apache.flink.datastream.api.stream.EventTimeExtractor;
 import org.apache.flink.datastream.api.stream.GlobalStream;
 import org.apache.flink.datastream.api.stream.KeyedPartitionStream;
 import org.apache.flink.datastream.api.stream.NonKeyedPartitionStream;
@@ -40,6 +41,7 @@ import org.apache.flink.datastream.impl.operators.TwoInputBroadcastProcessOperat
 import org.apache.flink.datastream.impl.operators.TwoInputNonBroadcastProcessOperator;
 import org.apache.flink.datastream.impl.operators.TwoOutputProcessOperator;
 import org.apache.flink.datastream.impl.utils.StreamUtils;
+import org.apache.flink.datastream.impl.watermark.ExtractEventTimeProcessFunction;
 import org.apache.flink.streaming.api.transformations.DataStreamV2SinkTransformation;
 import org.apache.flink.streaming.api.transformations.OneInputTransformation;
 import org.apache.flink.streaming.api.transformations.PartitionTransformation;
@@ -209,6 +211,25 @@ public class NonKeyedPartitionStreamImpl<T> extends AbstractDataStream<T>
         return new NonKeyedPartitionStreamImpl<>(
                 environment,
                 new PartitionTransformation<>(getTransformation(), new ShufflePartitioner<>()));
+    }
+
+    @Override
+    public ProcessConfigurableAndNonKeyedPartitionStream<T> extractEventTime(
+            EventTimeExtractor<T> assigner) {
+
+        TypeInformation<T> outType = getType();
+        ExtractEventTimeProcessFunction<T> eventTimeProcessFunction =
+                new ExtractEventTimeProcessFunction<>(assigner);
+        ProcessOperator<T, T> operator = new ProcessOperator<>(eventTimeProcessFunction);
+        OneInputTransformation<T, T> outputTransform =
+                StreamUtils.getOneInputTransformation(
+                        "EventTimeExtractor", this, outType, operator);
+        outputTransform.setAttribute(AttributeParser.parseAttribute(eventTimeProcessFunction));
+        // the parallelism should be the same as the input
+        outputTransform.setParallelism(this.getTransformation().getParallelism());
+        environment.addOperator(outputTransform);
+        return StreamUtils.wrapWithConfigureHandle(
+                new NonKeyedPartitionStreamImpl<>(environment, outputTransform));
     }
 
     @Override
