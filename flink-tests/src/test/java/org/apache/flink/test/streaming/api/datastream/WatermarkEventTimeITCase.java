@@ -114,7 +114,6 @@ public class WatermarkEventTimeITCase implements Serializable {
                                 long currentEventTime = ctx.getEventTimeManager().currentTime();
                                 System.out.println(ctx.getTaskInfo().getTaskName() + ctx.getTaskInfo().getIndexOfThisSubtask()
                                         + ", event time:" + currentEventTime + ", receive record " + record);
-                                ctx.getProcessingTimeManager().registerTimer(0);
                                 ctx.getEventTimeManager().registerTimer(currentEventTime + 1);
                             }
 
@@ -140,15 +139,6 @@ public class WatermarkEventTimeITCase implements Serializable {
                                         + "  "
                                 + " onEventTimer timestamp: " + timestamp + ", EventTimeManager time: " + ctx.getEventTimeManager().currentTime()
                                         );
-                            }
-
-                            @Override
-                            public void onProcessingTimer(
-                                    long timestamp,
-                                    Collector<String> output,
-                                    PartitionedContext ctx) {
-                                System.out.println("aaaaa");
-                                ctx.getProcessingTimeManager().registerTimer(timestamp + 1);
                             }
                         });
         env.execute("test");
