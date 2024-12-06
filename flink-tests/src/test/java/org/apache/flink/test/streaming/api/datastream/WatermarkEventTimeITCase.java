@@ -83,4 +83,48 @@ public class WatermarkEventTimeITCase implements Serializable {
                         });
         env.execute("test");
     }
+
+    @Test
+    public void testEventTimer() throws Exception {
+        ExecutionEnvironmentImpl env =
+                (ExecutionEnvironmentImpl) ExecutionEnvironment.getInstance();
+        //        env.getConfiguration().set(PipelineOptions.OPERATOR_CHAINING, false);
+        ProcessConfigurableAndNonKeyedPartitionStream<Tuple2<String, Long>> source =
+                env.fromSource(
+                                DataStreamV2SourceUtils.fromData(
+                                        List.of(
+                                                Tuple2.of("hello", 1L),
+                                                Tuple2.of("world", 2L),
+                                                Tuple2.of("and", 3L),
+                                                Tuple2.of("you", 4L),
+                                                Tuple2.of("known", 5L))),
+                                "Operator1")
+                        .withParallelism(DEFAULT_PARALLELISM);
+
+        source.extractEventTime(element -> element.f1)
+                .process(
+                        new OneInputStreamProcessFunction<Tuple2<String, Long>, String>() {
+                            @Override
+                            public void processRecord(
+                                    Tuple2<String, Long> record,
+                                    Collector<String> output,
+                                    PartitionedContext ctx)
+                                    throws Exception {}
+
+                            @Override
+                            public WatermarkHandlingResult onWatermark(
+                                    Watermark watermark,
+                                    Collector<String> output,
+                                    NonPartitionedContext<String> ctx) {
+                                System.out.println(
+                                        ctx.getTaskInfo().getTaskName()
+                                                + "  "
+                                                + ctx.getTaskInfo().getIndexOfThisSubtask()
+                                                + " receive Watermark: "
+                                                + watermark);
+                                return WatermarkHandlingResult.PEEK;
+                            }
+                        });
+        env.execute("test");
+    }
 }
