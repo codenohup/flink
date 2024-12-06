@@ -737,7 +737,7 @@ public abstract class AbstractStreamOperator<OUT>
 
     @Experimental
     public void processWatermark(WatermarkEvent watermark) throws Exception {
-        output.emitWatermark(watermark);
+        //output.emitWatermark(watermark);
     }
 
     @Experimental

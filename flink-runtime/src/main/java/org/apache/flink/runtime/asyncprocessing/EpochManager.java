@@ -120,9 +120,8 @@ public class EpochManager {
         // If one epoch has been closed before and all records in
         // this epoch have finished, the epoch will be removed from the output queue.
         while (!outputQueue.isEmpty() && outputQueue.peek().tryFinish()) {
-            LOG.trace(
-                    "Finish epoch: {}, outputQueue size: {}",
-                    outputQueue.peek(),
+            System.out.println(
+                    "Finish epoch:" + outputQueue.peek() + ", outputQueue size: " +
                     outputQueue.size());
             outputQueue.pop();
         }

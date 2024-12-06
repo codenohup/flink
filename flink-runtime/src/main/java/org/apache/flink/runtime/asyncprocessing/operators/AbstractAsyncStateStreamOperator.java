@@ -28,6 +28,7 @@ import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.runtime.asyncprocessing.AsyncExecutionController;
 import org.apache.flink.runtime.asyncprocessing.AsyncStateException;
 import org.apache.flink.runtime.asyncprocessing.RecordContext;
+import org.apache.flink.runtime.event.WatermarkEvent;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.state.AsyncKeyedStateBackend;
 import org.apache.flink.runtime.state.v2.StateDescriptor;
@@ -332,6 +333,16 @@ public abstract class AbstractAsyncStateStreamOperator<OUT> extends AbstractStre
         }
         asyncExecutionController.processNonRecord(() -> super.processWatermark(mark));
     }
+
+//    @Override
+//    public void processWatermark(WatermarkEvent mark) throws Exception {
+//        if (!isAsyncStateProcessingEnabled()) {
+//            // If async state processing is disabled, fallback to the super class.
+//            super.processWatermark(mark);
+//            return;
+//        }
+//        asyncExecutionController.processNonRecord(() -> super.processWatermark(mark));
+//    }
 
     @Override
     public void processWatermarkStatus(WatermarkStatus watermarkStatus) throws Exception {

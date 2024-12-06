@@ -93,15 +93,16 @@ public class WatermarkEventTimeITCase implements Serializable {
                 env.fromSource(
                                 DataStreamV2SourceUtils.fromData(
                                         List.of(
-                                                Tuple2.of("hello", 1L),
-                                                Tuple2.of("world", 2L),
-                                                Tuple2.of("and", 3L),
-                                                Tuple2.of("you", 4L),
+//                                                Tuple2.of("hello", 1L),
+//                                                Tuple2.of("world", 2L),
+//                                                Tuple2.of("and", 3L),
+//                                                Tuple2.of("you", 4L),
                                                 Tuple2.of("known", 5L))),
                                 "Operator1")
                         .withParallelism(DEFAULT_PARALLELISM);
 
-        source.extractEventTime(element -> element.f1)
+        source
+                .keyBy(element -> element.f0)
                 .process(
                         new OneInputStreamProcessFunction<Tuple2<String, Long>, String>() {
                             @Override
@@ -109,7 +110,13 @@ public class WatermarkEventTimeITCase implements Serializable {
                                     Tuple2<String, Long> record,
                                     Collector<String> output,
                                     PartitionedContext ctx)
-                                    throws Exception {}
+                                    throws Exception {
+                                long currentEventTime = ctx.getEventTimeManager().currentTime();
+                                System.out.println(ctx.getTaskInfo().getTaskName() + ctx.getTaskInfo().getIndexOfThisSubtask()
+                                        + ", event time:" + currentEventTime + ", receive record " + record);
+                                ctx.getProcessingTimeManager().registerTimer(0);
+                                ctx.getEventTimeManager().registerTimer(currentEventTime + 1);
+                            }
 
                             @Override
                             public WatermarkHandlingResult onWatermark(
@@ -117,12 +124,31 @@ public class WatermarkEventTimeITCase implements Serializable {
                                     Collector<String> output,
                                     NonPartitionedContext<String> ctx) {
                                 System.out.println(
-                                        ctx.getTaskInfo().getTaskName()
-                                                + "  "
-                                                + ctx.getTaskInfo().getIndexOfThisSubtask()
+                                        ctx.getTaskInfo().getTaskName() + ctx.getTaskInfo().getIndexOfThisSubtask()
+                                                + ",  "
                                                 + " receive Watermark: "
                                                 + watermark);
                                 return WatermarkHandlingResult.PEEK;
+                            }
+
+                            @Override
+                            public void onEventTimer(
+                                    long timestamp,
+                                    Collector<String> output,
+                                    PartitionedContext ctx) {
+                                System.out.println(ctx.getTaskInfo().getTaskName() + ctx.getTaskInfo().getIndexOfThisSubtask()
+                                        + "  "
+                                + " onEventTimer timestamp: " + timestamp + ", EventTimeManager time: " + ctx.getEventTimeManager().currentTime()
+                                        );
+                            }
+
+                            @Override
+                            public void onProcessingTimer(
+                                    long timestamp,
+                                    Collector<String> output,
+                                    PartitionedContext ctx) {
+                                System.out.println("aaaaa");
+                                ctx.getProcessingTimeManager().registerTimer(timestamp + 1);
                             }
                         });
         env.execute("test");

@@ -19,6 +19,7 @@
 package org.apache.flink.datastream.impl.operators;
 
 import org.apache.flink.api.common.TaskInfo;
+import org.apache.flink.api.common.watermark.LongWatermark;
 import org.apache.flink.api.common.watermark.WatermarkHandlingResult;
 import org.apache.flink.api.common.watermark.WatermarkHandlingStrategy;
 import org.apache.flink.datastream.api.context.EventTimeManager;
@@ -37,8 +38,10 @@ import org.apache.flink.runtime.event.WatermarkEvent;
 import org.apache.flink.streaming.api.operators.BoundedOneInput;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
+import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.watermark.AbstractInternalWatermarkDeclaration;
+import org.apache.flink.streaming.runtime.watermark.InternalDeclaredWatermarks;
 
 import java.util.Map;
 import java.util.function.BiConsumer;
@@ -119,6 +122,10 @@ public class ProcessOperator<IN, OUT>
                                 .get(watermark.getWatermark().getIdentifier())
                                 .getDefaultHandlingStrategy()
                         == WatermarkHandlingStrategy.FORWARD) {
+            if (watermark.getWatermark().getIdentifier().equals(InternalDeclaredWatermarks.INTERNAL_EVENT_TIME_WATERMARK_DECLARATION.getIdentifier())) {
+                long timestamp = ((LongWatermark) watermark.getWatermark()).getValue();
+                //timeServiceManager.advanceWatermark(new Watermark(timestamp));
+            }
             output.emitWatermark(watermark);
         }
     }
