@@ -21,9 +21,11 @@ package org.apache.flink.datastream.impl.stream;
 import org.apache.flink.api.common.attribute.Attribute;
 import org.apache.flink.api.common.state.StateDeclaration;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.connector.dsv2.Sink;
 import org.apache.flink.api.dag.Transformation;
 import org.apache.flink.api.java.functions.KeySelector;
+import org.apache.flink.api.java.functions.NullByteKeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.datastream.api.function.OneInputStreamProcessFunction;
 import org.apache.flink.datastream.api.function.TwoInputNonBroadcastStreamProcessFunction;
@@ -35,6 +37,8 @@ import org.apache.flink.datastream.api.stream.NonKeyedPartitionStream;
 import org.apache.flink.datastream.api.stream.ProcessConfigurable;
 import org.apache.flink.datastream.impl.ExecutionEnvironmentImpl;
 import org.apache.flink.datastream.impl.attribute.AttributeParser;
+import org.apache.flink.datastream.impl.extension.window.function.InternalOneInputWindowStreamProcessFunction;
+import org.apache.flink.datastream.impl.extension.window.function.InternalTwoOutputWindowStreamProcessFunction;
 import org.apache.flink.datastream.impl.operators.ProcessOperator;
 import org.apache.flink.datastream.impl.operators.TwoInputNonBroadcastProcessOperator;
 import org.apache.flink.datastream.impl.operators.TwoOutputProcessOperator;
@@ -70,13 +74,26 @@ public class GlobalStreamImpl<T> extends AbstractDataStream<T> implements Global
 
         TypeInformation<OUT> outType =
                 StreamUtils.getOutputTypeForOneInputProcessFunction(processFunction, getType());
-        ProcessOperator<T, OUT> operator = new ProcessOperator<>(processFunction);
-        return StreamUtils.wrapWithConfigureHandle(
-                transform(
-                        "Global Process",
-                        outType,
-                        operator,
-                        AttributeParser.parseAttribute(processFunction)));
+
+        if (processFunction instanceof InternalOneInputWindowStreamProcessFunction) {
+            // Transform to keyed stream.
+            KeyedPartitionStreamImpl<Byte, T> keyedStream =
+                    new KeyedPartitionStreamImpl<>(
+                            this, getTransformation(), new NullByteKeySelector<>(), Types.BYTE);
+            Transformation<OUT> outTransformation =
+                    keyedStream.transformWindow(outType, processFunction);
+            outTransformation.setParallelism(1, true);
+            return StreamUtils.wrapWithConfigureHandle(
+                    new GlobalStreamImpl<>(keyedStream.environment, outTransformation));
+        } else {
+            ProcessOperator<T, OUT> operator = new ProcessOperator<>(processFunction);
+            return StreamUtils.wrapWithConfigureHandle(
+                    transform(
+                            "Global Process",
+                            outType,
+                            operator,
+                            AttributeParser.parseAttribute(processFunction)));
+        }
     }
 
     @Override
@@ -92,6 +109,24 @@ public class GlobalStreamImpl<T> extends AbstractDataStream<T> implements Global
         TypeInformation<OUT1> firstOutputType = twoOutputType.f0;
         TypeInformation<OUT2> secondOutputType = twoOutputType.f1;
         OutputTag<OUT2> secondOutputTag = new OutputTag<OUT2>("Second-Output", secondOutputType);
+
+        if (processFunction instanceof InternalTwoOutputWindowStreamProcessFunction) {
+            // Transform to keyed stream.
+            KeyedPartitionStreamImpl<Byte, T> keyedStream =
+                    new KeyedPartitionStreamImpl<>(
+                            this, getTransformation(), new NullByteKeySelector<>(), Types.BYTE);
+            Transformation<OUT1> outTransformation =
+                    keyedStream.transformTwoOutputWindow(
+                            twoOutputType, secondOutputTag, processFunction);
+            outTransformation.setParallelism(1, true);
+
+            GlobalStreamImpl<OUT1> firstStream =
+                    new GlobalStreamImpl<>(environment, outTransformation);
+            GlobalStreamImpl<OUT2> secondStream =
+                    new GlobalStreamImpl<>(
+                            environment, firstStream.getSideOutputTransform(secondOutputTag));
+            return TwoGlobalStreamsImpl.of(firstStream, secondStream);
+        }
 
         TwoOutputProcessOperator<T, OUT1, OUT2> operator =
                 new TwoOutputProcessOperator<>(processFunction, secondOutputTag);

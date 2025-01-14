@@ -20,9 +20,11 @@ package org.apache.flink.datastream.impl.stream;
 
 import org.apache.flink.api.common.state.StateDeclaration;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.connector.dsv2.Sink;
 import org.apache.flink.api.dag.Transformation;
 import org.apache.flink.api.java.functions.KeySelector;
+import org.apache.flink.api.java.functions.NullByteKeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.datastream.api.function.OneInputStreamProcessFunction;
 import org.apache.flink.datastream.api.function.TwoInputBroadcastStreamProcessFunction;
@@ -35,6 +37,9 @@ import org.apache.flink.datastream.api.stream.NonKeyedPartitionStream;
 import org.apache.flink.datastream.api.stream.ProcessConfigurable;
 import org.apache.flink.datastream.impl.ExecutionEnvironmentImpl;
 import org.apache.flink.datastream.impl.attribute.AttributeParser;
+import org.apache.flink.datastream.impl.extension.window.function.InternalOneInputWindowStreamProcessFunction;
+import org.apache.flink.datastream.impl.extension.window.function.InternalTwoInputWindowStreamProcessFunction;
+import org.apache.flink.datastream.impl.extension.window.function.InternalTwoOutputWindowStreamProcessFunction;
 import org.apache.flink.datastream.impl.operators.ProcessOperator;
 import org.apache.flink.datastream.impl.operators.TwoInputBroadcastProcessOperator;
 import org.apache.flink.datastream.impl.operators.TwoInputNonBroadcastProcessOperator;
@@ -73,9 +78,25 @@ public class NonKeyedPartitionStreamImpl<T> extends AbstractDataStream<T>
 
         TypeInformation<OUT> outType =
                 StreamUtils.getOutputTypeForOneInputProcessFunction(processFunction, getType());
-        ProcessOperator<T, OUT> operator = new ProcessOperator<>(processFunction);
-        OneInputTransformation<T, OUT> outputTransform =
-                StreamUtils.getOneInputTransformation("Process", this, outType, operator);
+
+        ProcessOperator<T, OUT> operator;
+        OneInputTransformation<T, OUT> outputTransform;
+
+        if (processFunction instanceof InternalOneInputWindowStreamProcessFunction) {
+            // Transform to keyed stream.
+            KeyedPartitionStreamImpl<Byte, T> keyedStream =
+                    new KeyedPartitionStreamImpl<>(
+                            this, getTransformation(), new NullByteKeySelector<>(), Types.BYTE);
+            Transformation<OUT> transformedWindow =
+                    keyedStream.transformWindow(outType, processFunction);
+            return StreamUtils.wrapWithConfigureHandle(
+                    new NonKeyedPartitionStreamImpl<>(keyedStream.environment, transformedWindow));
+        } else {
+            operator = new ProcessOperator<>(processFunction);
+            outputTransform =
+                    StreamUtils.getOneInputTransformation("Process", this, outType, operator);
+        }
+
         outputTransform.setAttribute(AttributeParser.parseAttribute(processFunction));
         environment.addOperator(outputTransform);
         return StreamUtils.wrapWithConfigureHandle(
@@ -98,11 +119,24 @@ public class NonKeyedPartitionStreamImpl<T> extends AbstractDataStream<T>
         TypeInformation<OUT2> secondOutputType = twoOutputType.f1;
         OutputTag<OUT2> secondOutputTag = new OutputTag<>("Second-Output", secondOutputType);
 
-        TwoOutputProcessOperator<T, OUT1, OUT2> operator =
-                new TwoOutputProcessOperator<>(processFunction, secondOutputTag);
-        OneInputTransformation<T, OUT1> outTransformation =
-                StreamUtils.getOneInputTransformation(
-                        "Two-Output-Operator", this, firstOutputType, operator);
+        OneInputTransformation<T, OUT1> outTransformation;
+        if (processFunction instanceof InternalTwoOutputWindowStreamProcessFunction) {
+            // Transform to keyed stream.
+            KeyedPartitionStreamImpl<Byte, T> keyedStream =
+                    new KeyedPartitionStreamImpl<>(
+                            this, getTransformation(), new NullByteKeySelector<>(), Types.BYTE);
+            Transformation<OUT1> transformedWindow =
+                    keyedStream.transformTwoOutputWindow(
+                            twoOutputType, secondOutputTag, processFunction);
+            outTransformation = (OneInputTransformation<T, OUT1>) transformedWindow;
+
+        } else {
+            TwoOutputProcessOperator<T, OUT1, OUT2> operator =
+                    new TwoOutputProcessOperator<>(processFunction, secondOutputTag);
+            outTransformation =
+                    StreamUtils.getOneInputTransformation(
+                            "Two-Output-Operator", this, firstOutputType, operator);
+        }
         outTransformation.setAttribute(AttributeParser.parseAttribute(processFunction));
         NonKeyedPartitionStreamImpl<OUT1> firstStream =
                 new NonKeyedPartitionStreamImpl<>(environment, outTransformation);
@@ -134,6 +168,25 @@ public class NonKeyedPartitionStreamImpl<T> extends AbstractDataStream<T>
                         processFunction,
                         getType(),
                         ((NonKeyedPartitionStreamImpl<T_OTHER>) other).getType());
+
+        if (processFunction instanceof InternalTwoInputWindowStreamProcessFunction) {
+            // Transform to keyed stream.
+            KeyedPartitionStreamImpl<Byte, T> keyedStream =
+                    new KeyedPartitionStreamImpl<>(
+                            this, getTransformation(), new NullByteKeySelector<>(), Types.BYTE);
+
+            KeyedPartitionStreamImpl<Byte, T_OTHER> otherKeyedStream =
+                    new KeyedPartitionStreamImpl<>(
+                            (NonKeyedPartitionStreamImpl<T_OTHER>) other,
+                            ((NonKeyedPartitionStreamImpl<T_OTHER>) other).getTransformation(),
+                            new NullByteKeySelector<T_OTHER>(),
+                            Types.BYTE);
+            Transformation<OUT> transformedWindow =
+                    keyedStream.transformTwoInputWindow(
+                            outTypeInfo, processFunction, otherKeyedStream);
+            return StreamUtils.wrapWithConfigureHandle(
+                    new NonKeyedPartitionStreamImpl<>(keyedStream.environment, transformedWindow));
+        }
 
         TwoInputNonBroadcastProcessOperator<T, T_OTHER, OUT> processOperator =
                 new TwoInputNonBroadcastProcessOperator<>(processFunction);
