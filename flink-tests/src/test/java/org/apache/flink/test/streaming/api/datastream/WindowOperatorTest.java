@@ -18,6 +18,11 @@
 
 package org.apache.flink.test.streaming.api.datastream;
 
+import org.apache.flink.api.common.state.StateDeclaration;
+import org.apache.flink.api.common.state.StateDeclarations;
+import org.apache.flink.api.common.state.ValueStateDeclaration;
+import org.apache.flink.api.common.state.v2.ValueState;
+import org.apache.flink.api.common.typeinfo.TypeDescriptors;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.connector.dsv2.WrappedSink;
 import org.apache.flink.api.connector.dsv2.WrappedSource;
@@ -46,6 +51,9 @@ import org.junit.jupiter.api.Test;
 
 import java.io.Serializable;
 import java.time.Duration;
+import java.util.HashSet;
+import java.util.Optional;
+import java.util.Set;
 
 public class WindowOperatorTest implements Serializable {
     // ===================================================
@@ -641,6 +649,79 @@ public class WindowOperatorTest implements Serializable {
                                 System.out.println("SecondInput record: " + record);
                             }
                         });
+        env.execute("test process");
+    }
+
+    @Test
+    void testGetState() throws Exception {
+        ExecutionEnvironment env = ExecutionEnvironment.getInstance();
+
+        NonKeyedPartitionStream.ProcessConfigurableAndNonKeyedPartitionStream<ValueWithTimestamp>
+                source =
+                        env.fromSource(
+                                new WrappedSource<ValueWithTimestamp>(
+                                        new DataGeneratorSource<ValueWithTimestamp>(
+                                                new TestGeneratorFunction(),
+                                                100_000,
+                                                TypeInformation.of(ValueWithTimestamp.class))),
+                                "source");
+
+        NonKeyedPartitionStream.ProcessConfigurableAndNonKeyedPartitionStream<ValueWithTimestamp>
+                stream1 =
+                        source.process(
+                                EventTimeExtension.<ValueWithTimestamp>newWatermarkGeneratorBuilder(
+                                                element -> element.getTimestamp())
+                                        .perEventWatermark()
+                                        .buildAsProcessFunction());
+
+        OneInputStreamProcessFunction<ValueWithTimestamp, String> windowProcessFunction =
+                BuiltinFuncs.window(
+                        WindowStrategy.tumbling(Duration.ofSeconds(5)),
+                        new OneInputWindowStreamProcessFunction<ValueWithTimestamp, String>() {
+
+                            ValueStateDeclaration<String> stateDeclaration =
+                                    StateDeclarations.valueState("state", TypeDescriptors.STRING);
+
+                            @Override
+                            public Set<StateDeclaration> useWindowStates() {
+                                //                                stateDeclaration =
+                                // StateDeclarations.valueState("state", TypeDescriptors.STRING);
+                                HashSet<StateDeclaration> set = new HashSet<>();
+                                set.add(stateDeclaration);
+                                return set;
+                                //                                return Set.of(stateDeclaration);
+                            }
+
+                            @Override
+                            public void onRecord(
+                                    ValueWithTimestamp record,
+                                    Collector<String> output,
+                                    PartitionedContext<String> ctx,
+                                    OneInputWindowContext<ValueWithTimestamp> windowContext)
+                                    throws Exception {
+                                Optional<ValueState<String>> state =
+                                        windowContext.getWindowState(stateDeclaration);
+                                String content = state.get().value();
+                                if (content == null) {
+                                    content = "";
+                                }
+                                content += record.getValue() + ",";
+                                state.get().update(content);
+                            }
+
+                            @Override
+                            public void onTrigger(
+                                    Collector<String> output,
+                                    PartitionedContext<String> ctx,
+                                    OneInputWindowContext<ValueWithTimestamp> windowContext)
+                                    throws Exception {
+                                Optional<ValueState<String>> state =
+                                        windowContext.getWindowState(stateDeclaration);
+                                output.collect(state.get().value());
+                            }
+                        });
+
+        stream1.process(windowProcessFunction).toSink(new WrappedSink<>(new PrintSink<>()));
         env.execute("test process");
     }
 

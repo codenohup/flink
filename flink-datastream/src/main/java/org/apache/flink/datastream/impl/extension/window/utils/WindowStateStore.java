@@ -149,12 +149,12 @@ public class WindowStateStore<K, W extends Window> {
             return Optional.empty();
         }
 
-        if (stateRedistributionModeIsNone(stateDeclaration)) {
-            throw new UnsupportedOperationException(
-                    "RedistributionMode "
-                            + stateDeclaration.getRedistributionMode().name()
-                            + " is not supported for window state.");
-        }
+        //        if (stateRedistributionModeIsNone(stateDeclaration)) {
+        //            throw new UnsupportedOperationException(
+        //                    "RedistributionMode "
+        //                            + stateDeclaration.getRedistributionMode().name()
+        //                            + " is not supported for window state.");
+        //        }
 
         ValueStateDescriptor<T> stateDescriptor =
                 new ValueStateDescriptor<T>(
